@@ -21,7 +21,7 @@ class Processor:
             if len(self.args.fold) > 1:
                 for fold in range(self.args.fold[0], self.args.fold[1]+1):
                     train, valid = divide_dataset(load_data(), fold=fold)
-                    self._train(train, valid)
+                    self._train(train, valid, fold)
             else:
                 train, valid = divide_dataset(load_data(), fold=self.args.fold[0])
                 self._train(train, valid, fold=self.args.fold[0])
