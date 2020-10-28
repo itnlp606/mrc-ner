@@ -1,4 +1,5 @@
 import copy
+import torch
 from time import time
 from models import BERTseq
 from data_loader import load_data
@@ -60,7 +61,6 @@ class Processor:
         optimizer = AdamW(optimizer_grouped_parameters, lr=self.args.learning_rate, eps=1e-8)
 
         total_steps = 1000
-
         scheduler = get_linear_schedule_with_warmup(
             optimizer,
             num_warmup_steps=0,
@@ -86,7 +86,7 @@ class Processor:
                 train_losses += loss.item()
 
                 # tackle exploding gradients
-                torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=self.args['max_grad_norm'])
+                torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=1.0)
 
                 optimizer.step()
 
@@ -118,9 +118,6 @@ class Processor:
                 stop += 1
 
             print('Epoch', i, train_losses, valid_losses, time()-start_time)
-
-            # if (i+1+self.args['load_model']) % self.args['save_epoch'] == 0:
-            #     torch.save(self.model, 'models/Mod' + str(fold) + '_' + str(i+1))
             start_time = time()
         
 
