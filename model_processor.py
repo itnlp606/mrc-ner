@@ -109,6 +109,7 @@ class Processor:
 
             if valid_losses < top:
                 best_model = copy.deepcopy(self.model)
+                top = valid_losses
                 print('save new top', top)
                 stop = 0
             else:
