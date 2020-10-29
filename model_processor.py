@@ -1,5 +1,6 @@
 import copy
 import torch
+from tqdm import tqdm
 from time import time
 from models import BERTseq
 from data_loader import load_data
@@ -70,11 +71,12 @@ class Processor:
         top, stop = 500, 0
         best_model = None
         start_time = time()
+
         for i in range(self.args.num_epoches):
             # training
             self.model.train()
             train_losses = 0
-            for idx, batch_data in enumerate(train_loader):
+            for idx, batch_data in enumerate(tqdm(train_loader)):
                 batch_data = tuple(i.to(DEVICE) for i in batch_data)
                 ids, masks, labels = batch_data
 
