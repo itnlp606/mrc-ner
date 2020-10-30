@@ -1,11 +1,12 @@
 import copy
 import torch
+import numpy as np
 from tqdm import tqdm
 from time import time
 from models import BERTseq
 from data_loader import load_data
 from torch.optim import AdamW
-from utils import divide_dataset, preprocessing
+from utils import divide_dataset, preprocessing, calculate_F1
 from transformers import AutoTokenizer, AutoConfig, get_linear_schedule_with_warmup
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 from constants import DEVICE_NAME, DEVICE
@@ -30,8 +31,8 @@ class Processor:
             self._predict()
     
     def _data2loader(self, data, mode):
-        padded_data, padded_tags, followed = preprocessing(data, self.tokenizer)
-        data = TensorDataset(padded_data['input_ids'], padded_data['attention_mask'], padded_tags)
+        padded_data, padded_tags, followed, labels_len = preprocessing(data, self.tokenizer)
+        data = TensorDataset(padded_data['input_ids'], padded_data['attention_mask'], padded_tags, labels_len)
         
         if mode == 'seq':
             sampler = RandomSampler(data)
@@ -46,8 +47,8 @@ class Processor:
     def _train(self, train, valid, fold):
         # init
         print('Running on', DEVICE_NAME)
-        train_loader, _ = self._data2loader(train, mode='seq')
-        valid_loader, _ = self._data2loader(valid, mode='rand')
+        # train_loader, _ = self._data2loader(train, mode='seq')
+        valid_loader, valid_followed = self._data2loader(valid, mode='rand')
 
         # optimizer and scheduler
         param_optimizer = list(self.model.named_parameters())
@@ -68,7 +69,7 @@ class Processor:
             num_training_steps=total_steps,
         )
 
-        top, stop = 500, 0
+        top, stop = 0, 0
         best_model = None
         start_time = time()
 
@@ -79,10 +80,10 @@ class Processor:
             train_losses = 0
             for idx, batch_data in enumerate(tqdm(train_loader)):
                 batch_data = tuple(i.to(DEVICE) for i in batch_data)
-                ids, masks, labels = batch_data
+                ids, masks, tags, _ = batch_data
 
                 self.model.zero_grad()
-                loss, _ = self.model(ids, masks, labels)
+                loss, _ = self.model(ids, masks, tags)
 
                 # process loss
                 loss.backward()
@@ -99,21 +100,25 @@ class Processor:
             # evaluate
             self.model.eval()
 
+            F1s = []
             with torch.no_grad():
                 valid_losses = 0
                 for idx, batch_data in enumerate(valid_loader):
                     batch_data = tuple(i.to(DEVICE) for i in batch_data)
-                    ids, masks, labels = batch_data
-                    loss, _ = self.model(ids, masks, labels)
+                    ids, masks, tags, labels_len = batch_data
+                    loss, logits = self.model(ids, masks, tags)
+                    logits = torch.argmax(logits, dim=2)
+                    F1s.append(calculate_F1(logits, tags, labels_len))
 
                     # process loss
                     valid_losses += loss.item()
                 valid_losses /= len(valid_loader)
+            avg_F1 = np.mean(F1s)
 
-            if valid_losses < top:
+            if avg_F1 > top:
                 best_model = copy.deepcopy(self.model)
-                top = valid_losses
-                print('save new top', top)
+                top = avg_F1
+                print('Epoch', i, 'save new top', top)
                 stop = 0
             else:
                 if stop > self.args.stop_num:
@@ -121,7 +126,7 @@ class Processor:
                     return
                 stop += 1
 
-            print('Epoch', i, train_losses, valid_losses, time()-start_time)
+                print('Epoch', i, train_losses, valid_losses, time()-start_time, avg_F1)
             start_time = time()
         
 

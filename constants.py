@@ -27,4 +27,4 @@ for label in LABEL2Q:
 	q = LABEL2Q[label]
 	LABEL2Q[label] = q.replace(' ', ',').replace('　', ',')
 
-TAG2ID, ID2TAG = {'[PAD]':3, 'START':1, 'END':2, 'N':0}, {3:'[PAD]', 1:'START', 2:'END', 0:'N'}
+TAG2ID, ID2TAG = {'START':1, 'END':2, 'N':0}, {1:'START', 2:'END', 0:'N'}

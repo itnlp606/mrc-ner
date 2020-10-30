@@ -12,6 +12,7 @@ def preprocessing(data, tokenizer):
 	data_to_be_padded = []
 	tags_to_be_padded = []
 	followed = []
+	labels_len = []
 
 	for kdx, tup in enumerate(data):
 		# For each paragarph, generate tensors, Labels
@@ -56,6 +57,7 @@ def preprocessing(data, tokenizer):
 					return
 				tags_to_be_padded.append(forward_pad_tags+tag)
 				data_to_be_padded.append(tup)
+				labels_len.append(len(LABEL2Q[label]))
 				if qdx == 0:
 					followed.append(0)
 				else:
@@ -65,10 +67,11 @@ def preprocessing(data, tokenizer):
 	padded_data = tokenizer(data_to_be_padded, is_split_into_words=True, padding=True, return_tensors='pt')
 	max_seq_len = padded_data['input_ids'].shape[1]
 	for mdx, tags in enumerate(tags_to_be_padded):
-		tags_to_be_padded[mdx].extend([TAG2ID['[PAD]']]*(max_seq_len-len(tags)))
+		tags_to_be_padded[mdx].extend([TAG2ID['N']]*(max_seq_len-len(tags)))
 	padded_tags = torch.tensor(tags_to_be_padded)
 	followed = torch.tensor(followed)
-	return padded_data, padded_tags, followed
+	labels_len = torch.tensor(labels_len)
+	return padded_data, padded_tags, followed, labels_len
 	
 
 def split_data(data, tags, length):
@@ -115,6 +118,51 @@ def divide_dataset(data, fold=1):
 def data2pixel(data):
 	with open('data', 'wb') as f:
 		pickle.dump(data, f)
+
+def calculate_F1(logits, tags, labels_len):
+	total_preds = []
+	total_corrects = []
+
+	for idx, batch_tags in enumerate(tags):
+		prefix = labels_len[idx].item()
+		c_start, p_start = -1, -1
+		for i in range(prefix+2, batch_tags.shape[0]):
+			correct, pred = batch_tags[i].item(), logits[idx][i].item()
+			# total corrects
+			if correct == 1:
+				c_start = i
+			elif c_start > 0 and correct == 2:
+				total_corrects.append((c_start, i+1))
+				c_start = -1
+			# totoal preds
+			if pred == 1:
+				p_start = i
+			elif p_start > 0 and pred == 2:
+				total_preds.append((p_start, i+1))
+				p_start = -1
+	
+	# zero situation
+	if len(total_corrects) == 0 and len(total_preds) == 0:
+		return 1
+	elif len(total_corrects) == 0:
+		return 0
+	elif len(total_preds) == 0:
+		return 0
+
+	# normal situation
+	# cauculate intersection
+	pred_correct = 0
+	for i in total_preds:
+		if i in total_corrects:
+			pred_correct += 1
+	
+	if pred_correct == 0:
+		return 0
+	
+	precision = pred_correct / len(total_preds)
+	recall = pred_correct / len(total_corrects)
+	
+	return 2*precision*recall/(precision+recall)
 
 if __name__ == '__main__':
 	a = [1,2]
