@@ -2,7 +2,6 @@ import copy
 import torch
 import numpy as np
 from tqdm import tqdm
-from time import time
 from models import BERTseq
 from data_loader import load_data
 from torch.optim import AdamW
@@ -71,7 +70,7 @@ class Processor:
 
         top, stop = 0, 0
         best_model = None
-        start_time = time()
+        best_epoch = None
 
         print('training start.. on fold', fold)
         for i in range(self.args.num_epoches):
@@ -117,17 +116,17 @@ class Processor:
 
             if avg_F1 > top:
                 best_model = copy.deepcopy(self.model)
+                best_epoch = i+1
                 top = avg_F1
-                print('Epoch', i, 'save new top', top)
+                print('BREAK Epoch', i+1, train_losses, valid_losses, avg_F1)
                 stop = 0
             else:
                 if stop > self.args.stop_num:
-                    torch.save(best_model, 'models/Mod' + str(fold) + '_' + str(i+1))
+                    torch.save(best_model, 'models/Mod' + str(fold) + '_' + str(best_epoch))
                     return
                 stop += 1
 
-                print('Epoch', i, train_losses, valid_losses, time()-start_time, avg_F1)
-            start_time = time()
+                print('Epoch', i+1, train_losses, valid_losses, avg_F1)
         
 
     def _predict(self):
