@@ -16,6 +16,7 @@ class Processor:
         self.tokenizer = AutoTokenizer.from_pretrained(args.pretrained_model, cache_dir='pretrained_models')
 
     def run(self):
+        print('Running on', DEVICE_NAME)
         if self.args.is_train:
             self.model = BERTseq(self.args).to(DEVICE)
             if len(self.args.fold) > 1:
@@ -45,7 +46,6 @@ class Processor:
 
     def _train(self, train, valid, fold):
         # init
-        print('Running on', DEVICE_NAME)
         train_loader, _ = self._data2loader(train, mode='seq')
         valid_loader, _ = self._data2loader(valid, mode='rand')
 
