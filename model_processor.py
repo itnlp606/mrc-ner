@@ -47,8 +47,8 @@ class Processor:
     def _train(self, train, valid, fold):
         # init
         print('Running on', DEVICE_NAME)
-        # train_loader, _ = self._data2loader(train, mode='seq')
-        valid_loader, valid_followed = self._data2loader(valid, mode='rand')
+        train_loader, _ = self._data2loader(train, mode='seq')
+        valid_loader, _ = self._data2loader(valid, mode='rand')
 
         # optimizer and scheduler
         param_optimizer = list(self.model.named_parameters())
