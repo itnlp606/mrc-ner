@@ -18,7 +18,6 @@ class Processor:
     def run(self):
         print('Running on', DEVICE_NAME)
         if self.args.is_train:
-            self.model = BERTseq(self.args).to(DEVICE)
             if len(self.args.fold) > 1:
                 for fold in range(self.args.fold[0], self.args.fold[1]+1):
                     train, valid = divide_dataset(load_data(), fold=fold)
@@ -46,6 +45,7 @@ class Processor:
 
     def _train(self, train, valid, fold):
         # init
+        self.model = BERTseq(self.args).to(DEVICE)
         train_loader, _ = self._data2loader(train, mode='seq')
         valid_loader, _ = self._data2loader(valid, mode='rand')
 
