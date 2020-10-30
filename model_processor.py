@@ -1,6 +1,7 @@
 import copy
 import torch
 import numpy as np
+from time import time
 from tqdm import tqdm
 from models import BERTseq
 from data_loader import load_data
@@ -75,6 +76,7 @@ class Processor:
         print('training start.. on fold', fold)
         for i in range(self.args.num_epoches):
             # training
+            start_time = time()
             self.model.train()
             train_losses = 0
             for idx, batch_data in enumerate(train_loader):
@@ -118,7 +120,7 @@ class Processor:
                 best_model = copy.deepcopy(self.model)
                 best_epoch = i+1
                 top = avg_F1
-                print('BREAK Epoch', i+1, train_losses, valid_losses, avg_F1)
+                print('BREAK Epoch', i+1, train_losses, valid_losses, avg_F1, time()-start_time)
                 stop = 0
             else:
                 if stop > self.args.stop_num:
@@ -126,7 +128,7 @@ class Processor:
                     return
                 stop += 1
 
-                print('Epoch', i+1, train_losses, valid_losses, avg_F1)
+                print('Epoch', i+1, train_losses, valid_losses, avg_F1, time()-start_time)
         
 
     def _predict(self):
