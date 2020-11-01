@@ -49,7 +49,7 @@ class Processor:
     def _train(self, train, valid, fold):
         # init
         self.model = BERTseq(self.args).to(DEVICE)
-        # train_loader, _ = self._data2loader(train, mode='seq')
+        train_loader, _ = self._data2loader(train, mode='seq')
         valid_loader, _ = self._data2loader(valid, mode='rand')
 
         # optimizer and scheduler
