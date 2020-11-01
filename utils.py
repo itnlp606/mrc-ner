@@ -37,7 +37,7 @@ def preprocessing(data, tokenizer):
 		# process data
 		label2datatag = {}
 		for name in LABEL2Q:
-			label2datatag[name] = split_data(data, label2tag[name], len(LABEL2Q[name]))
+			label2datatag[name] = split_data_tags(data, label2tag[name], len(LABEL2Q[name]))
 
 		for label in label2datatag:
 			total_list = label2datatag[label]
@@ -74,7 +74,7 @@ def preprocessing(data, tokenizer):
 	return padded_data, padded_tags, followed, labels_len
 	
 
-def split_data(data, tags, length):
+def split_data_tags(data, tags, length):
 	MAX = 505 - length
 	if MAX >= len(data):
 		return [(data, tags)]
@@ -92,6 +92,32 @@ def split_data(data, tags, length):
 			data_list.append((data[start:i], tags[start:i]))
 			if i + MAX >= len(data):
 				data_list.append((data[i:len(data)], tags[i:len(data)]))
+				break
+			tag = i + MAX
+			start = i
+			i = tag
+		i -= 1
+
+	return data_list
+
+def split_data(data, length):
+	MAX = 505 - length
+	if MAX >= len(data):
+		return [data]
+
+	data_list = []
+	stop_list = [' ', '。', '　']
+	start = 0
+	tag = MAX
+	i = tag
+
+	# print(data)
+
+	while True:
+		if data[i] in stop_list:
+			data_list.append(data[start:i])
+			if i + MAX >= len(data):
+				data_list.append(data[i:len(data)])
 				break
 			tag = i + MAX
 			start = i
@@ -156,6 +182,8 @@ def calculate_F1(logits, tags, labels_len):
 		if i in total_corrects:
 			pred_correct += 1
 	
+	return len(total_corrects), len(total_preds), pred_correct
+
 	if pred_correct == 0:
 		return 0
 	

@@ -1,15 +1,17 @@
+import os
 import copy
 import torch
+import shutil
 import numpy as np
 from time import time
 from tqdm import tqdm
 from models import BERTseq
 from data_loader import load_data
 from torch.optim import AdamW
-from utils import divide_dataset, preprocessing, calculate_F1
+from utils import divide_dataset, preprocessing, calculate_F1, split_data
 from transformers import AutoTokenizer, AutoConfig, get_linear_schedule_with_warmup
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
-from constants import DEVICE_NAME, DEVICE
+from constants import DEVICE_NAME, DEVICE, LABEL2Q
 
 class Processor:
     def __init__(self, args):
@@ -101,7 +103,7 @@ class Processor:
             # evaluate
             self.model.eval()
 
-            F1s = []
+            tup  = [0, 0, 0]
             with torch.no_grad():
                 valid_losses = 0
                 for idx, batch_data in enumerate(valid_loader):
@@ -109,12 +111,17 @@ class Processor:
                     ids, masks, tags, labels_len = batch_data
                     loss, logits = self.model(ids, masks, tags)
                     logits = torch.argmax(logits, dim=2)
-                    F1s.append(calculate_F1(logits, tags, labels_len))
+                    tup += calculate_F1(logits, tags, labels_len)
 
                     # process loss
                     valid_losses += loss.item()
                 valid_losses /= len(valid_loader)
-            avg_F1 = np.mean(F1s)
+                
+            # calculate F1
+            total_corrects, total_preds, pred_correct = tup
+            precision = pred_correct / total_preds
+            recall = pred_correct / total_corrects
+            avg_F1 = 2*precision*recall/(precision+recall)
 
             if avg_F1 > top:
                 best_model = copy.deepcopy(self.model)
@@ -132,4 +139,96 @@ class Processor:
         
 
     def _predict(self):
-        pass
+        model_folder_name, data_folder_name, space = 'mrc-models', 'tcdata/juesai', ','
+        modelList = os.listdir(model_folder_name)
+        dataList = os.listdir(data_folder_name)            
+        file2dic = {}
+
+        # init ds, create empty file
+        for data_file_name in dataList:
+            prefix, _ = os.path.splitext(data_file_name)
+            file2dic[prefix] = {}
+            with open('result/result/'+prefix+'.ann', 'w', encoding='utf-8') as f:
+                f.write('\n')
+
+        for model in modelList:
+            # load model, variables
+            self.model = torch.load(model_folder_name + '/' + model, map_location=DEVICE)
+
+            # process each file
+            for file_dx, data_file_name in enumerate(tqdm(dataList)):
+                # if file_dx == 3:
+                #     break
+                prefix, _ = os.path.splitext(data_file_name)
+                with open(data_folder_name + '/' + data_file_name) as f:
+                    content = f.read()
+
+                # judge empty file
+                if content == ' ':
+                    continue
+
+                content = content.replace(' ', space).replace('　', space)
+                # for each label, get predictions
+                for label in LABEL2Q:
+                    # basic variable
+                    label_len = len(LABEL2Q[label])
+                    offset = 0
+
+                    # split data and get logits
+                    data_list = split_data(content, label_len)
+                    for data in data_list:
+                        # preprocessing data
+                        data = list(data)
+                        for idx, c in enumerate(data):
+                            if c not in self.tokenizer.vocab:
+                                data[idx] = '[UNK]'
+                        qtr = list(LABEL2Q[label])+['[SEP]']+data
+
+                        # feed into model
+                        tokens = self.tokenizer(qtr, is_split_into_words=True, return_tensors='pt')
+                        labels = torch.zeros(tokens['input_ids'].shape, dtype=torch.long).to(DEVICE)
+                        _, logits = self.model(tokens['input_ids'].to(DEVICE), tokens['attention_mask'].to(DEVICE), labels=labels)
+                        logits = logits.squeeze(0).argmax(1)
+
+                        # extract entities
+                        start, start_idx = 0, -1
+                        for i in range(label_len+2, logits.shape[0]):
+                            tag = logits[i].item()
+                            if tag == 1:
+                                start = 1
+                                start_idx = i
+                            elif tag == 2 and start & 1:
+                                start_pos = start_idx - label_len - 2
+                                end_pos = i - label_len - 2 + 1
+                                entity = ''.join(data[start_pos: end_pos]) # caculated
+                                real_entity = content[start_pos+offset: end_pos+offset] # real word in paragraph
+                                if real_entity != entity and '[UNK]' not in entity:
+                                    print('wrong match', real_entity, entity)
+                                    return
+                                
+                                # put in dic
+                                tup = (label, start_pos+offset, end_pos+offset, real_entity)
+                                if tup in file2dic[prefix]:
+                                    file2dic[prefix][tup] += 1
+                                else:
+                                    file2dic[prefix][tup] = 1
+
+                                start = 0
+
+                        offset += len(data)
+
+        # write to files
+        blade = 5
+        for prefix in file2dic:
+            print('write', prefix)
+            with open('result/result/'+prefix+'.ann', 'w', encoding='utf-8') as f:
+                preds = file2dic[prefix]
+                for idx, tup in enumerate(preds):
+                    if preds[tup] < blade:
+                        continue
+                    extra = '' if idx == 0 else '\n'
+                    t = extra + 'T' + str(idx+1) + '\t' + tup[0] + ' ' + str(tup[1]) + ' ' + str(tup[2]) + '\t' + tup[3]
+                    f.write(t)
+
+        # make zip
+        shutil.make_archive("result", 'zip', "result")
