@@ -78,32 +78,32 @@ class Processor:
         print('training start.. on fold', fold)
         for i in range(self.args.num_epoches):
             # training
-            # start_time = time()
-            # self.model.train()
-            # train_losses = 0
-            # for idx, batch_data in enumerate(train_loader):
-            #     batch_data = tuple(i.to(DEVICE) for i in batch_data)
-            #     ids, masks, tags, _ = batch_data
+            start_time = time()
+            self.model.train()
+            train_losses = 0
+            for idx, batch_data in enumerate(train_loader):
+                batch_data = tuple(i.to(DEVICE) for i in batch_data)
+                ids, masks, tags, _ = batch_data
 
-            #     self.model.zero_grad()
-            #     loss, _ = self.model(ids, masks, tags)
+                self.model.zero_grad()
+                loss, _ = self.model(ids, masks, tags)
 
-            #     # process loss
-            #     loss.backward()
-            #     train_losses += loss.item()
+                # process loss
+                loss.backward()
+                train_losses += loss.item()
 
-            #     # tackle exploding gradients
-            #     torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=1.0)
+                # tackle exploding gradients
+                torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=1.0)
 
-            #     optimizer.step()
+                optimizer.step()
 
-            # scheduler.step()
-            # train_losses /= len(train_loader)
+            scheduler.step()
+            train_losses /= len(train_loader)
 
             # evaluate
             self.model.eval()
 
-            total_corrects, total_preds, pred_correct = 0, 0, 0
+            tup = [0, 0, 0]
             with torch.no_grad():
                 valid_losses = 0
                 for idx, batch_data in enumerate(valid_loader):
@@ -113,7 +113,7 @@ class Processor:
                     logits = torch.argmax(logits, dim=2)
                     tup = calculate_F1(logits, tags, labels_len)
 
-                    # add
+                    # adding
                     total_corrects += tup[0]
                     total_preds += tup[1]
                     pred_correct += tup[2]
@@ -236,3 +236,8 @@ class Processor:
 
         # make zip
         shutil.make_archive("result", 'zip', "result")
+
+if __name__ == '__main__':
+    a = [1, 2, 3]
+    b = [4, 5, 67]
+    print(a+b)

@@ -166,14 +166,6 @@ def calculate_F1(logits, tags, labels_len):
 			elif p_start > 0 and pred == 2:
 				total_preds.append((p_start, i+1))
 				p_start = -1
-	
-	# zero situation
-	if len(total_corrects) == 0 and len(total_preds) == 0:
-		return 1
-	elif len(total_corrects) == 0:
-		return 0
-	elif len(total_preds) == 0:
-		return 0
 
 	# normal situation
 	# cauculate intersection
@@ -182,15 +174,7 @@ def calculate_F1(logits, tags, labels_len):
 		if i in total_corrects:
 			pred_correct += 1
 	
-	return len(total_corrects), len(total_preds), pred_correct
-
-	if pred_correct == 0:
-		return 0
-	
-	precision = pred_correct / len(total_preds)
-	recall = pred_correct / len(total_corrects)
-	
-	return 2*precision*recall/(precision+recall)
+	return [len(total_corrects), len(total_preds), pred_correct]
 
 if __name__ == '__main__':
 	a = [1,2]
