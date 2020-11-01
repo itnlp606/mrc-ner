@@ -78,32 +78,32 @@ class Processor:
         print('training start.. on fold', fold)
         for i in range(self.args.num_epoches):
             # training
-            start_time = time()
-            self.model.train()
-            train_losses = 0
-            for idx, batch_data in enumerate(train_loader):
-                batch_data = tuple(i.to(DEVICE) for i in batch_data)
-                ids, masks, tags, _ = batch_data
+            # start_time = time()
+            # self.model.train()
+            # train_losses = 0
+            # for idx, batch_data in enumerate(train_loader):
+            #     batch_data = tuple(i.to(DEVICE) for i in batch_data)
+            #     ids, masks, tags, _ = batch_data
 
-                self.model.zero_grad()
-                loss, _ = self.model(ids, masks, tags)
+            #     self.model.zero_grad()
+            #     loss, _ = self.model(ids, masks, tags)
 
-                # process loss
-                loss.backward()
-                train_losses += loss.item()
+            #     # process loss
+            #     loss.backward()
+            #     train_losses += loss.item()
 
-                # tackle exploding gradients
-                torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=1.0)
+            #     # tackle exploding gradients
+            #     torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=1.0)
 
-                optimizer.step()
+            #     optimizer.step()
 
-            scheduler.step()
-            train_losses /= len(train_loader)
+            # scheduler.step()
+            # train_losses /= len(train_loader)
 
             # evaluate
             self.model.eval()
 
-            tup  = [0, 0, 0]
+            total_corrects, total_preds, pred_correct = 0, 0, 0
             with torch.no_grad():
                 valid_losses = 0
                 for idx, batch_data in enumerate(valid_loader):
@@ -111,14 +111,18 @@ class Processor:
                     ids, masks, tags, labels_len = batch_data
                     loss, logits = self.model(ids, masks, tags)
                     logits = torch.argmax(logits, dim=2)
-                    tup += calculate_F1(logits, tags, labels_len)
+                    tup = calculate_F1(logits, tags, labels_len)
+
+                    # add
+                    total_corrects += tup[0]
+                    total_preds += tup[1]
+                    pred_correct += tup[2]
 
                     # process loss
                     valid_losses += loss.item()
                 valid_losses /= len(valid_loader)
-                
+
             # calculate F1
-            total_corrects, total_preds, pred_correct = tup
             precision = pred_correct / total_preds
             recall = pred_correct / total_corrects
             avg_F1 = 2*precision*recall/(precision+recall)
