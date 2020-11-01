@@ -49,7 +49,7 @@ class Processor:
     def _train(self, train, valid, fold):
         # init
         self.model = BERTseq(self.args).to(DEVICE)
-        train_loader, _ = self._data2loader(train, mode='seq')
+        # train_loader, _ = self._data2loader(train, mode='seq')
         valid_loader, _ = self._data2loader(valid, mode='rand')
 
         # optimizer and scheduler
@@ -131,7 +131,8 @@ class Processor:
                 best_model = copy.deepcopy(self.model)
                 best_epoch = i+1
                 top = avg_F1
-                print('BREAK Epoch', i+1, train_losses, valid_losses, avg_F1, time()-start_time)
+                print('BREAK Epoch %d train_loss:%.2e valid_loss:%.2e precision:%.4f recall:%.4f F1:%.4f time %.0f' % \
+                    (i+1, train_losses, valid_losses, precision, recall, avg_F1, time()-start_time))
                 stop = 0
             else:
                 if stop > self.args.stop_num:
@@ -139,7 +140,8 @@ class Processor:
                     return
                 stop += 1
 
-                print('Epoch', i+1, train_losses, valid_losses, avg_F1, time()-start_time)
+                print('Epoch %d train_loss:%.2e valid_loss:%.2e precision:%.4f recall:%.4f F1:%.4f time:%.0f' % \
+                    (i+1, train_losses, valid_losses, precision, recall, avg_F1, time()-start_time))
         
 
     def _predict(self):
