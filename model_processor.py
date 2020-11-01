@@ -103,7 +103,7 @@ class Processor:
             # evaluate
             self.model.eval()
 
-            tup = [0, 0, 0]
+            total_corrects, total_preds, pred_correct = 0, 0, 0
             with torch.no_grad():
                 valid_losses = 0
                 for idx, batch_data in enumerate(valid_loader):
