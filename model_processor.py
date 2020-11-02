@@ -83,7 +83,7 @@ class Processor:
             start_time = time()
             self.model.train()
             train_losses = 0
-            for idx, batch_data in enumerate(train_loader):
+            for idx, batch_data in enumerate(tqdm(train_loader)):
                 batch_data = tuple(i.to(DEVICE) for i in batch_data)
                 ids, masks, tags, _ = batch_data
 
