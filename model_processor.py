@@ -8,7 +8,7 @@ from tqdm import tqdm
 from models import BERTseq
 from data_loader import load_data
 from torch.optim import AdamW
-from utils import divide_dataset, preprocessing, calculate_F1, split_data
+from utils import divide_dataset, preprocessing, calculate_F1, split_data, get_dict
 from transformers import AutoTokenizer, AutoConfig, get_linear_schedule_with_warmup
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 from constants import DEVICE_NAME, DEVICE, LABEL2Q
@@ -30,6 +30,8 @@ class Processor:
                 self._train(train, valid, fold=self.args.fold[0])
             
         else:
+            data = divide_dataset(load_data())
+            self.dict = get_dict(data)
             self._predict()
     
     def _data2loader(self, data, mode):
@@ -131,7 +133,7 @@ class Processor:
                 best_model = copy.deepcopy(self.model)
                 best_epoch = i+1
                 top = avg_F1
-                print('BREAK Epoch %d train_loss:%.2e valid_loss:%.2e precision:%.4f recall:%.4f F1:%.4f time %.0f' % \
+                print('BREAK Epoch %d train:%.2e valid:%.2e precision:%.4f recall:%.4f F1:%.4f time %.0f' % \
                     (i+1, train_losses, valid_losses, precision, recall, avg_F1, time()-start_time))
                 stop = 0
             else:
@@ -140,14 +142,14 @@ class Processor:
                     return
                 stop += 1
 
-                print('Epoch %d train_loss:%.2e valid_loss:%.2e precision:%.4f recall:%.4f F1:%.4f time:%.0f' % \
+                print('Epoch %d train:%.2e valid:%.2e precision:%.4f recall:%.4f F1:%.4f time:%.0f' % \
                     (i+1, train_losses, valid_losses, precision, recall, avg_F1, time()-start_time))
         
 
     def _predict(self):
         model_folder_name, data_folder_name, space = 'mrc-models', 'tcdata/juesai', ','
         modelList = os.listdir(model_folder_name)
-        dataList = os.listdir(data_folder_name)            
+        dataList = os.listdir(data_folder_name)
         file2dic = {}
 
         # init ds, create empty file
@@ -163,8 +165,10 @@ class Processor:
 
             # process each file
             for file_dx, data_file_name in enumerate(tqdm(dataList)):
-                # if file_dx == 3:
+                # if file_dx == 15:
                 #     break
+                # data_file_name = str(1000+file_dx) + '.txt'
+
                 prefix, _ = os.path.splitext(data_file_name)
                 with open(data_folder_name + '/' + data_file_name) as f:
                     content = f.read()
@@ -224,9 +228,12 @@ class Processor:
                         offset += len(data)
 
         # write to files
+        cts = 0
         blade = 5
-        for prefix in file2dic:
-            print('write', prefix)
+        for idx, prefix in enumerate(file2dic):
+            # prefix = str(1000+idx)
+            # if idx == 15:
+            #     break
             with open('result/result/'+prefix+'.ann', 'w', encoding='utf-8') as f:
                 preds = file2dic[prefix]
                 for idx, tup in enumerate(preds):
@@ -234,8 +241,17 @@ class Processor:
                         continue
                     extra = '' if idx == 0 else '\n'
                     t = extra + 'T' + str(idx+1) + '\t' + tup[0] + ' ' + str(tup[1]) + ' ' + str(tup[2]) + '\t' + tup[3]
-                    f.write(t)
 
+                    # check label
+                    # if tup[3] in self.dict and self.dict[tup[3]] != tup[0]:
+                    #     print(tup[0], self.dict[tup[3]], tup[3])
+                    # print(t, end='')
+
+                    cts += 1
+                    f.write(t)
+                # print()
+
+        print(cts / 500)
         # make zip
         shutil.make_archive("result", 'zip', "result")
 

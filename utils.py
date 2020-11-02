@@ -5,6 +5,18 @@ import pickle
 import numpy as np
 from constants import TAG2ID, LABEL2Q
 
+def get_dict(data):
+	dic = {}
+	for tup in data:
+		# For each paragarph, generate tensors, Labels
+		_, labels = tup
+
+		# add tagging info
+		for tup in labels:
+			_, label, _, _, name = tup
+			dic[name] = label
+	return dic
+
 # merge ques, data and pad this batch
 def preprocessing(data, tokenizer):
 	# init ds
@@ -36,8 +48,9 @@ def preprocessing(data, tokenizer):
 
 		# process data
 		label2datatag = {}
+		splitted_data = _split_data_tags(data, label2tag[name], len(LABEL2Q[name]))
 		for name in LABEL2Q:
-			label2datatag[name] = split_data_tags(data, label2tag[name], len(LABEL2Q[name]))
+			label2datatag[name] = splitted_data
 
 		for label in label2datatag:
 			total_list = label2datatag[label]
@@ -74,14 +87,30 @@ def preprocessing(data, tokenizer):
 	return padded_data, padded_tags, followed, labels_len
 	
 
-def split_data_tags(data, tags, length):
+def _split_data_tags(data, tags, length):
+	# split in sentences
+	data_list = []
+	stop_list = [' ', '。', '　']
+	start = 0
+	l1 = 0
+
+	for i in range(len(data)):
+		if data[i] in stop_list and i-start > 5:
+			data_list.append((data[start:i+1], tags[start:i+1]))
+			start = i+1
+			l1 += len(data[start:i+1])
+	
+	if len(data) > start:
+		data_list.append((data[start:len(data)], tags[start:len(data)]))
+		l1 += len(data[start:len(data)])
+
+	return data_list
+
+	# divide line
 	MAX = 505 - length
 	if MAX >= len(data):
 		return [(data, tags)]
 
-	data_list = []
-	stop_list = [' ', '。', '　']
-	start = 0
 	tag = MAX
 	i = tag
 
@@ -101,6 +130,21 @@ def split_data_tags(data, tags, length):
 	return data_list
 
 def split_data(data, length):
+	# split in sentences
+	data_list = []
+	stop_list = [' ', '。', '　']
+	start = 0
+
+	for i in range(len(data)):
+		if data[i] in stop_list and i-start > 5:
+			data_list.append(data[start:i+1])
+			start = i+1
+	
+	if len(data) > start:
+		data_list.append(data[start:len(data)])
+
+	return data_list
+
 	MAX = 505 - length
 	if MAX >= len(data):
 		return [data]
@@ -126,7 +170,7 @@ def split_data(data, length):
 
 	return data_list
 
-def divide_dataset(data, fold=1):
+def divide_dataset(data, fold=-1):
 	np.random.seed(0)
 	data_list = []
 	for i in range(len(data)):
@@ -138,7 +182,9 @@ def divide_dataset(data, fold=1):
 	start = 100*num_blocks
 	a = np.vstack([data_list[0:start], data_list[start+100:]])
 
-	# print('valid', start, start+50, 'test', start+50, start+100)
+	if fold < 0:
+		return data_list
+
 	return a, data_list[start:start+100]
 
 def data2pixel(data):
