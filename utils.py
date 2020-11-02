@@ -48,9 +48,8 @@ def preprocessing(data, tokenizer):
 
 		# process data
 		label2datatag = {}
-		splitted_data = _split_data_tags(data, label2tag[name], len(LABEL2Q[name]))
 		for name in LABEL2Q:
-			label2datatag[name] = splitted_data
+			label2datatag[name] = _split_data_tags(data, label2tag[name], len(LABEL2Q[name]))
 
 		for label in label2datatag:
 			total_list = label2datatag[label]
